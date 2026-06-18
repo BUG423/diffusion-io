@@ -1,3 +1,7 @@
+<p align="right">
+  <a href="README_zh.md">🇨🇳 中文</a> | <b>🇬🇧 English</b>
+</p>
+
 # PostDiffIO: Conditional Diffusion Posterior Refinement for Inertial Odometry
 
 > **Status**: Preprint · Code release pending · Results under active validation
@@ -82,7 +86,7 @@ Existing uncertainty-aware IO methods include Monte Carlo dropout, deep ensemble
 
 ### 3.1 Problem Formulation
 
-Given a sequence of IMU measurements $\mathbf{x}_{1:T} = \{(\mathbf{a}_t, \boldsymbol{\omega}_t)\}_{t=1}^T$ sampled at frequency $f$ (typically 200 Hz), where $\mathbf{a}_t \in \mathbb{R}^3$ and $\boldsymbol{\omega}_t \in \mathbb{R}^3$ denote linear acceleration and angular velocity respectively, the IO task is to estimate the corresponding velocity trajectory $\mathbf{v}_{1:T} \in \mathbb{R}^{3 \times T}$.
+Given a sequence of IMU measurements $\mathbf{x}_{1:T} = \{(\mathbf{a}_t, \boldsymbol{\omega}_t)\}_{t=1}^{T}$ sampled at frequency $f$ (typically 200 Hz), where $\mathbf{a}_t \in \mathbb{R}^3$ and $\boldsymbol{\omega}_t \in \mathbb{R}^3$ denote linear acceleration and angular velocity respectively, the IO task is to estimate the corresponding velocity trajectory $\mathbf{v}_{1:T} \in \mathbb{R}^{3 \times T}$.
 
 PostDiffIO operates in sliding windows of length $W$. For each window, the backbone predicts a velocity estimate $\hat{\mathbf{v}}_t$, and the diffusion refiner models the residual distribution $p(\boldsymbol{\epsilon}_t \mid \hat{\mathbf{v}}_t, \mathbf{x}_t)$ where $\boldsymbol{\epsilon}_t = \mathbf{v}_t - \hat{\mathbf{v}}_t$.
 
@@ -100,9 +104,9 @@ The backbone also produces intermediate features $\mathbf{f}_t \in \mathbb{R}^{d
 
 The refiner is a conditional denoising network $\boldsymbol{\epsilon}_\theta(\mathbf{r}_t, t, \mathbf{c}_t)$ that predicts the noise added to velocity residuals. It takes three inputs:
 
-- **Noisy residual** $\mathbf{r}_t = \sqrt{\bar{\alpha}_t} \boldsymbol{\epsilon} + \sqrt{1 - \bar{\alpha}_t} \boldsymbol{\eta}$: the velocity residual corrupted by diffusion noise at timestep $t$.
+- **Noisy residual** $\mathbf{r}_t = \sqrt{\bar{\alpha}_t}\,\boldsymbol{\epsilon} + \sqrt{1 - \bar{\alpha}_t}\,\boldsymbol{\eta}$: the velocity residual corrupted by diffusion noise at timestep $t$.
 - **Timestep embedding**: A sinusoidal embedding of the diffusion timestep $t$, projected through a two-layer MLP.
-- **Condition vector** $\mathbf{c}_t = \text{Encoder}([\mathbf{f}_t; \hat{\mathbf{v}}_t])$: backbone features concatenated with the baseline velocity prediction, projected to dimension 128.
+- **Condition vector** $\mathbf{c}_t = \mathrm{Encoder}([\mathbf{f}_t;\, \hat{\mathbf{v}}_t])$: backbone features concatenated with the baseline velocity prediction, projected to dimension 128.
 
 The refiner architecture consists of:
 - A linear projection of the concatenated inputs to hidden dimension 256.
@@ -113,11 +117,11 @@ The refiner architecture consists of:
 
 The training loss combines two components:
 
-$$\mathcal{L} = \mathcal{L}_{\text{velocity}} + \lambda \mathcal{L}_{\text{diffusion}}$$
+$$\mathcal{L} = \mathcal{L}_{\text{velocity}} + \lambda\,\mathcal{L}_{\text{diffusion}}$$
 
 where $\mathcal{L}_{\text{velocity}}$ is the standard MSE loss between predicted and ground-truth velocity (for the backbone), and $\mathcal{L}_{\text{diffusion}}$ is the noise-prediction loss:
 
-$$\mathcal{L}_{\text{diffusion}} = \mathbb{E}_{t \sim \mathcal{U}(0,T), \boldsymbol{\eta} \sim \mathcal{N}(0,\mathbf{I})} \left[ \| \boldsymbol{\eta} - \boldsymbol{\epsilon}_\theta(\mathbf{r}_t, t, \mathbf{c}_t) \|^2 \right]$$
+$$\mathcal{L}_{\text{diffusion}} = \mathbb{E}_{t \sim \mathcal{U}(0,T),\;\boldsymbol{\eta} \sim \mathcal{N}(0,\mathbf{I})} \left[\, \left\|\boldsymbol{\eta} - \boldsymbol{\epsilon}_\theta(\mathbf{r}_t,\, t,\, \mathbf{c}_t)\right\|^2 \,\right]$$
 
 We use a cosine noise schedule with 100 diffusion steps, balancing quality and efficiency.
 
@@ -126,20 +130,25 @@ We use a cosine noise schedule with 100 diffusion steps, balancing quality and e
 At inference, we employ deterministic DDIM sampling with 10 steps (down from 100) to efficiently sample the residual posterior:
 
 1. Initialize $\mathbf{r}_T \sim \mathcal{N}(0, \mathbf{I})$.
-2. For $t = T, T-\Delta t, \ldots, \Delta t$:
-   - Predict noise: $\hat{\boldsymbol{\eta}} = \boldsymbol{\epsilon}_\theta(\mathbf{r}_t, t, \mathbf{c})$
-   - Compute clean estimate: $\mathbf{r}_0 = (\mathbf{r}_t - \sqrt{1-\bar{\alpha}_t} \hat{\boldsymbol{\eta}}) / \sqrt{\bar{\alpha}_t}$
-   - Update: $\mathbf{r}_{t-\Delta t} = \sqrt{\bar{\alpha}_{t-\Delta t}} \mathbf{r}_0 + \sqrt{1-\bar{\alpha}_{t-\Delta t}} \hat{\boldsymbol{\eta}}$
+2. For $t = T,\; T - \Delta t,\; \ldots,\; \Delta t$:
+   - Predict noise: $\hat{\boldsymbol{\eta}} = \boldsymbol{\epsilon}_\theta(\mathbf{r}_t,\, t,\, \mathbf{c})$
+   - Compute clean estimate: $\mathbf{r}_0 = \dfrac{\mathbf{r}_t - \sqrt{1 - \bar{\alpha}_t}\,\hat{\boldsymbol{\eta}}}{\sqrt{\bar{\alpha}_t}}$
+   - Update: $\mathbf{r}_{t - \Delta t} = \sqrt{\bar{\alpha}_{t - \Delta t}}\,\mathbf{r}_0 + \sqrt{1 - \bar{\alpha}_{t - \Delta t}}\,\hat{\boldsymbol{\eta}}$
 
 Drawing $K$ samples (default 16), we compute:
-- **Mean estimate**: $\hat{\mathbf{v}} = \hat{\mathbf{v}}_{\text{backbone}} + \frac{1}{K}\sum_{k=1}^K \boldsymbol{\epsilon}^{(k)}$
-- **Uncertainty**: $\boldsymbol{\Sigma} = \frac{1}{K}\sum_{k=1}^K (\boldsymbol{\epsilon}^{(k)} - \bar{\boldsymbol{\epsilon}})(\boldsymbol{\epsilon}^{(k)} - \bar{\boldsymbol{\epsilon}})^\top$
+
+- **Mean estimate**:
+$$\hat{\mathbf{v}} = \hat{\mathbf{v}}_{\text{backbone}} + \frac{1}{K}\sum_{k=1}^{K}\boldsymbol{\epsilon}^{(k)}$$
+
+- **Uncertainty**:
+$$\boldsymbol{\Sigma} = \frac{1}{K}\sum_{k=1}^{K}\left(\boldsymbol{\epsilon}^{(k)} - \bar{\boldsymbol{\epsilon}}\right)\left(\boldsymbol{\epsilon}^{(k)} - \bar{\boldsymbol{\epsilon}}\right)^{\!\top}$$
 
 ### 3.6 EKF Trajectory Fusion
 
 For sequence-level trajectory recovery, we employ a 15-dimensional error-state EKF that fuses diffusion-derived velocity observations with IMU mechanization:
 
-**State vector**: $\mathbf{x} = [\mathbf{p}, \mathbf{v}, \mathbf{q}, \mathbf{b}_a, \mathbf{b}_g]^\top \in \mathbb{R}^{15}$
+**State vector**: $\mathbf{x} = [\mathbf{p},\, \mathbf{v},\, \mathbf{q},\, \mathbf{b}_a,\, \mathbf{b}_g]^{\!\top} \in \mathbb{R}^{15}$
+
 - Position $\mathbf{p} \in \mathbb{R}^3$, velocity $\mathbf{v} \in \mathbb{R}^3$
 - Orientation quaternion $\mathbf{q} \in \mathbb{S}^3$
 - Accelerometer bias $\mathbf{b}_a \in \mathbb{R}^3$, gyroscope bias $\mathbf{b}_g \in \mathbb{R}^3$
@@ -148,7 +157,7 @@ For sequence-level trajectory recovery, we employ a 15-dimensional error-state E
 
 **Update**: At each diffusion prediction window, the velocity observation (with covariance from diffusion samples) is fused via the Kalman gain:
 
-$$\mathbf{K} = \mathbf{P} \mathbf{H}^\top (\mathbf{H} \mathbf{P} \mathbf{H}^\top + \mathbf{R})^{-1}$$
+$$\mathbf{K} = \mathbf{P}\,\mathbf{H}^{\!\top}\!\left(\mathbf{H}\,\mathbf{P}\,\mathbf{H}^{\!\top} + \mathbf{R}\right)^{-1}$$
 
 where $\mathbf{H}$ selects the velocity block from the state and $\mathbf{R}$ is the diffusion-derived observation covariance. The Joseph form is used for numerically stable covariance updates.
 
