@@ -117,11 +117,11 @@ The refiner architecture consists of:
 
 The training loss combines two components:
 
-$$\mathcal{L} = \mathcal{L}_{\text{velocity}} + \lambda\,\mathcal{L}_{\text{diffusion}}$$
+$$\mathcal{L} = \mathcal{L}_{\text{velocity}} + \lambda \mathcal{L}_{\text{diffusion}}$$
 
 where $\mathcal{L}_{\text{velocity}}$ is the standard MSE loss between predicted and ground-truth velocity (for the backbone), and $\mathcal{L}_{\text{diffusion}}$ is the noise-prediction loss:
 
-$$\mathcal{L}_{\text{diffusion}} = \mathbb{E}_{t \sim \mathcal{U}(0,T),\;\boldsymbol{\eta} \sim \mathcal{N}(0,\mathbf{I})} \left[\, \left\|\boldsymbol{\eta} - \boldsymbol{\epsilon}_\theta(\mathbf{r}_t,\, t,\, \mathbf{c}_t)\right\|^2 \,\right]$$
+$$\mathcal{L}_{\text{diffusion}} = \mathbb{E}_{t \sim \mathcal{U}(0,T),\; \boldsymbol{\eta} \sim \mathcal{N}(0,\mathbf{I})} \left[ \left\|\boldsymbol{\eta} - \boldsymbol{\epsilon}_\theta(\mathbf{r}_t, t, \mathbf{c}_t)\right\|^2 \right]$$
 
 We use a cosine noise schedule with 100 diffusion steps, balancing quality and efficiency.
 
@@ -141,13 +141,13 @@ Drawing $K$ samples (default 16), we compute:
 $$\hat{\mathbf{v}} = \hat{\mathbf{v}}_{\text{backbone}} + \frac{1}{K}\sum_{k=1}^{K}\boldsymbol{\epsilon}^{(k)}$$
 
 - **Uncertainty**:
-$$\boldsymbol{\Sigma} = \frac{1}{K}\sum_{k=1}^{K}\left(\boldsymbol{\epsilon}^{(k)} - \bar{\boldsymbol{\epsilon}}\right)\left(\boldsymbol{\epsilon}^{(k)} - \bar{\boldsymbol{\epsilon}}\right)^{\!\top}$$
+$$\boldsymbol{\Sigma} = \frac{1}{K}\sum_{k=1}^{K}\left(\boldsymbol{\epsilon}^{(k)} - \bar{\boldsymbol{\epsilon}}\right)\left(\boldsymbol{\epsilon}^{(k)} - \bar{\boldsymbol{\epsilon}}\right)^{\top}$$
 
 ### 3.6 EKF Trajectory Fusion
 
 For sequence-level trajectory recovery, we employ a 15-dimensional error-state EKF that fuses diffusion-derived velocity observations with IMU mechanization:
 
-**State vector**: $\mathbf{x} = [\mathbf{p},\, \mathbf{v},\, \mathbf{q},\, \mathbf{b}_a,\, \mathbf{b}_g]^{\!\top} \in \mathbb{R}^{15}$
+**State vector**: $\mathbf{x} = [\mathbf{p}, \mathbf{v}, \mathbf{q}, \mathbf{b}_a, \mathbf{b}_g]^{\top} \in \mathbb{R}^{15}$
 
 - Position $\mathbf{p} \in \mathbb{R}^3$, velocity $\mathbf{v} \in \mathbb{R}^3$
 - Orientation quaternion $\mathbf{q} \in \mathbb{S}^3$
@@ -157,7 +157,7 @@ For sequence-level trajectory recovery, we employ a 15-dimensional error-state E
 
 **Update**: At each diffusion prediction window, the velocity observation (with covariance from diffusion samples) is fused via the Kalman gain:
 
-$$\mathbf{K} = \mathbf{P}\,\mathbf{H}^{\!\top}\!\left(\mathbf{H}\,\mathbf{P}\,\mathbf{H}^{\!\top} + \mathbf{R}\right)^{-1}$$
+$$\mathbf{K} = \mathbf{P} \mathbf{H}^{\top} \left(\mathbf{H} \mathbf{P} \mathbf{H}^{\top} + \mathbf{R}\right)^{-1}$$
 
 where $\mathbf{H}$ selects the velocity block from the state and $\mathbf{R}$ is the diffusion-derived observation covariance. The Joseph form is used for numerically stable covariance updates.
 
