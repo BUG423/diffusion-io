@@ -14,7 +14,7 @@
 
 ## Abstract
 
-Inertial Odometry (IO) estimates trajectory from raw inertial measurement unit (IMU) data, forming the backbone of indoor navigation where GNSS is unavailable. While recent deep-learning-based methods such as RoNIN have demonstrated competitive velocity regression, they typically produce point estimates and lack principled uncertainty quantification—limiting their applicability in safety-critical scenarios.
+Inertial Odometry (IO) estimates trajectory from raw inertial measurement unit (IMU) data, forming the backbone of indoor navigation where GNSS is unavailable. While recent deep-learning-based methods such as RoNIN have demonstrated competitive velocity regression, they typically produce point estimates and lack principled uncertainty quantification — limiting their applicability in safety-critical scenarios.
 
 We present **PostDiffIO**, a two-stage framework that augments a deterministic IO backbone with a conditional diffusion process over velocity residuals. The backbone (a ResNet1D adapted from RoNIN) predicts a baseline velocity from IMU windows; a lightweight conditional diffusion refiner then models the posterior distribution of the residual between the backbone prediction and ground-truth velocity. During training, the refiner learns to denoise the residual distribution conditioned on backbone features via a standard noise-prediction objective. At inference, deterministic DDIM sampling yields a set of residual samples whose mean refines the backbone estimate and whose variance provides calibrated uncertainty. For sequential trajectory recovery, we further propose an error-state Extended Kalman Filter (EKF) that fuses the diffusion-derived velocity observations with IMU mechanization dynamics, producing both position and velocity estimates with full covariance tracking.
 
@@ -46,15 +46,15 @@ Preliminary experiments on synthetic and benchmark inertial datasets show that P
 
 ## 1. Introduction
 
-Accurate and robust indoor positioning is essential for applications ranging from augmented reality to autonomous robotics. Inertial Measurement Units (IMUs), ubiquitous in consumer electronics, provide high-rate motion sensing but suffer from unbounded drift when integrated naively. Traditional model-based approaches—including Extended Kalman Filters (EKFs) and Zero-Velocity Updates (ZUPT)—require careful tuning and degrade under aggressive motion or magnetic disturbances.
+Accurate and robust indoor positioning is essential for applications ranging from augmented reality to autonomous robotics. Inertial Measurement Units (IMUs), ubiquitous in consumer electronics, provide high-rate motion sensing but suffer from unbounded drift when integrated naively. Traditional model-based approaches — including Extended Kalman Filters (EKFs) and Zero-Velocity Updates (ZUPT) — require careful tuning and degrade under aggressive motion or magnetic disturbances.
 
 Deep learning has emerged as a powerful alternative for IO, directly mapping IMU sequences to velocity or position increments. Notably, RoNIN introduced a ResNet1D architecture achieving real-time velocity regression from 200 Hz IMU windows. Subsequent works have extended this with LSTM, TCN, and attention-based variants. However, a fundamental limitation persists: these methods output deterministic point estimates and provide no measure of prediction confidence.
 
-In safety-critical domains—human activity recognition, robot navigation, structural health monitoring—knowing *when* a prediction is unreliable is as important as the prediction itself. Bayesian approaches offer a principled framework for uncertainty estimation but are computationally prohibitive for real-time deployment on mobile devices.
+In safety-critical domains — human activity recognition, robot navigation, structural health monitoring — knowing *when* a prediction is unreliable is as important as the prediction itself. Bayesian approaches offer a principled framework for uncertainty estimation but are computationally prohibitive for real-time deployment on mobile devices.
 
 Diffusion models, originally developed for image generation, have recently shown remarkable capacity for modeling complex distributions in low-dimensional regression tasks. Their iterative refinement process naturally provides multiple samples from a learned posterior, enabling uncertainty quantification without explicit density estimation.
 
-In this work, we propose **PostDiffIO**, a framework that leverages conditional diffusion models to refine velocity residuals predicted by an IO backbone. Our key insight is that rather than modeling the full velocity distribution—which would be costly and unnecessary—we can decompose the problem: a fast deterministic backbone provides a strong baseline, and a lightweight diffusion process captures only the residual uncertainty. This two-stage design achieves the best of both worlds—real-time inference speed from the backbone and principled uncertainty from diffusion.
+In this work, we propose **PostDiffIO**, a framework that leverages conditional diffusion models to refine velocity residuals predicted by an IO backbone. Our key insight is that rather than modeling the full velocity distribution — which would be costly and unnecessary — we can decompose the problem: a fast deterministic backbone provides a strong baseline, and a lightweight diffusion process captures only the residual uncertainty. This two-stage design achieves the best of both worlds — real-time inference speed from the backbone and principled uncertainty from diffusion.
 
 Our contributions are threefold:
 
@@ -86,9 +86,9 @@ Existing uncertainty-aware IO methods include Monte Carlo dropout, deep ensemble
 
 ### 3.1 Problem Formulation
 
-Given a sequence of IMU measurements $\mathbf{x}_{1:T} = \{(\mathbf{a}_t, \boldsymbol{\omega}_t)\}_{t=1}^{T}$ sampled at frequency $f$ (typically 200 Hz), where $\mathbf{a}_t \in \mathbb{R}^3$ and $\boldsymbol{\omega}_t \in \mathbb{R}^3$ denote linear acceleration and angular velocity respectively, the IO task is to estimate the corresponding velocity trajectory $\mathbf{v}_{1:T} \in \mathbb{R}^{3 \times T}$.
+Given a sequence of IMU measurements sampled at frequency f (typically 200 Hz), where linear acceleration and angular velocity are 3D vectors, the IO task is to estimate the corresponding velocity trajectory.
 
-PostDiffIO operates in sliding windows of length $W$. For each window, the backbone predicts a velocity estimate $\hat{\mathbf{v}}_t$, and the diffusion refiner models the residual distribution $p(\boldsymbol{\epsilon}_t \mid \hat{\mathbf{v}}_t, \mathbf{x}_t)$ where $\boldsymbol{\epsilon}_t = \mathbf{v}_t - \hat{\mathbf{v}}_t$.
+PostDiffIO operates in sliding windows of length W. For each window, the backbone predicts a velocity estimate, and the diffusion refiner models the residual distribution, where the residual is defined as the difference between ground-truth velocity and backbone prediction.
 
 ### 3.2 RoNIN Backbone
 
@@ -98,17 +98,18 @@ We adopt the RoNIN ResNet1D architecture as our deterministic backbone. The netw
 2. **Residual groups**: Four groups of residual blocks (with configurable group sizes) process the temporal features.
 3. **Output head**: A fully-connected module maps the pooled features to 3-dimensional velocity estimates.
 
-The backbone also produces intermediate features $\mathbf{f}_t \in \mathbb{R}^{d_f}$ from the penultimate layer, which serve as conditioning information for the diffusion refiner.
+The backbone also produces intermediate features from the penultimate layer, which serve as conditioning information for the diffusion refiner.
 
 ### 3.3 Conditional Diffusion Residual Refiner
 
-The refiner is a conditional denoising network $\boldsymbol{\epsilon}_\theta(\mathbf{r}_t, t, \mathbf{c}_t)$ that predicts the noise added to velocity residuals. It takes three inputs:
+The refiner is a conditional denoising network that predicts the noise added to velocity residuals. It takes three inputs:
 
-- **Noisy residual** $\mathbf{r}_t = \sqrt{\bar{\alpha}_t}\,\boldsymbol{\epsilon} + \sqrt{1 - \bar{\alpha}_t}\,\boldsymbol{\eta}$: the velocity residual corrupted by diffusion noise at timestep $t$.
-- **Timestep embedding**: A sinusoidal embedding of the diffusion timestep $t$, projected through a two-layer MLP.
-- **Condition vector** $\mathbf{c}_t = \mathrm{Encoder}([\mathbf{f}_t;\, \hat{\mathbf{v}}_t])$: backbone features concatenated with the baseline velocity prediction, projected to dimension 128.
+- **Noisy residual**: The velocity residual corrupted by diffusion noise at timestep t, formed by adding noise via the cosine schedule.
+- **Timestep embedding**: A sinusoidal embedding of the diffusion timestep t, projected through a two-layer MLP.
+- **Condition vector**: Backbone features concatenated with the baseline velocity prediction, projected to dimension 128.
 
 The refiner architecture consists of:
+
 - A linear projection of the concatenated inputs to hidden dimension 256.
 - Four residual blocks, each applying LayerNorm → Linear → SiLU → Linear with skip connections.
 - An output projection producing a 3-dimensional noise prediction.
@@ -117,11 +118,11 @@ The refiner architecture consists of:
 
 The training loss combines two components:
 
-$$\mathcal{L} = \mathcal{L}_{\text{velocity}} + \lambda \mathcal{L}_{\text{diffusion}}$$
+![training_loss](https://render.githubusercontent.com/render?math=%5Cmathcal%7BL%7D%20%3D%20%5Cmathcal%7BL%7D_%7B%5Ctext%7Bvelocity%7D%7D%20%2B%20%5Clambda%20%5Cmathcal%7BL%7D_%7B%5Ctext%7Bdiffusion%7D%7D)
 
-where $\mathcal{L}_{\text{velocity}}$ is the standard MSE loss between predicted and ground-truth velocity (for the backbone), and $\mathcal{L}_{\text{diffusion}}$ is the noise-prediction loss:
+where the first term is the standard MSE loss between predicted and ground-truth velocity (for the backbone), and the second term is the noise-prediction loss:
 
-$$\mathcal{L}_{\text{diffusion}} = \mathbb{E}_{t \sim \mathcal{U}(0,T),\; \boldsymbol{\eta} \sim \mathcal{N}(0,\mathbf{I})} \left[ \left\|\boldsymbol{\eta} - \boldsymbol{\epsilon}_\theta(\mathbf{r}_t, t, \mathbf{c}_t)\right\|^2 \right]$$
+![diffusion_loss](https://render.githubusercontent.com/render?math=%5Cmathcal%7BL%7D_%7B%5Ctext%7Bdiffusion%7D%7D%20%3D%20%5Cmathbb%7BE%7D_%7Bt%20%5Csim%20%5Cmathcal%7BU%7D(0%2CT)%2C%20%5Cboldsymbol%7B%5Ceta%7D%20%5Csim%20%5Cmathcal%7BN%7D(0%2C%5Cmathbf%7BI%7D)%7D%20%5Cleft%5B%20%5Cleft%5C%7C%5Cboldsymbol%7B%5Ceta%7D%20-%20%5Cboldsymbol%7B%5Cepsilon%7D_%5Ctheta(%5Cmathbf%7Br%7D_t%2C%20t%2C%20%5Cmathbf%7Bc%7D_t)%5Cright%5C%7C%5E2%20%5Cright%5D)
 
 We use a cosine noise schedule with 100 diffusion steps, balancing quality and efficiency.
 
@@ -129,37 +130,28 @@ We use a cosine noise schedule with 100 diffusion steps, balancing quality and e
 
 At inference, we employ deterministic DDIM sampling with 10 steps (down from 100) to efficiently sample the residual posterior:
 
-1. Initialize $\mathbf{r}_T \sim \mathcal{N}(0, \mathbf{I})$.
-2. For $t = T,\; T - \Delta t,\; \ldots,\; \Delta t$:
-   - Predict noise: $\hat{\boldsymbol{\eta}} = \boldsymbol{\epsilon}_\theta(\mathbf{r}_t,\, t,\, \mathbf{c})$
-   - Compute clean estimate: $\mathbf{r}_0 = \dfrac{\mathbf{r}_t - \sqrt{1 - \bar{\alpha}_t}\,\hat{\boldsymbol{\eta}}}{\sqrt{\bar{\alpha}_t}}$
-   - Update: $\mathbf{r}_{t - \Delta t} = \sqrt{\bar{\alpha}_{t - \Delta t}}\,\mathbf{r}_0 + \sqrt{1 - \bar{\alpha}_{t - \Delta t}}\,\hat{\boldsymbol{\eta}}$
+1. Initialize the noisy residual from a standard normal distribution.
+2. For each timestep, sequentially: predict noise, compute clean estimate, update noisy residual.
 
-Drawing $K$ samples (default 16), we compute:
+The clean estimate is computed as:
 
-- **Mean estimate**:
-$$\hat{\mathbf{v}} = \hat{\mathbf{v}}_{\text{backbone}} + \frac{1}{K}\sum_{k=1}^{K}\boldsymbol{\epsilon}^{(k)}$$
+![ddim_estimate](https://render.githubusercontent.com/render?math=%5Cmathbf%7Br%7D_0%20%3D%20%5Cdfrac%7B%5Cmathbf%7Br%7D_t%20-%20%5Csqrt%7B1%20-%20%5Cbar%7B%5Calpha%7D_t%7D%5C%2C%5Chat%7B%5Cboldsymbol%7B%5Ceta%7D%7D%7D%7B%5Csqrt%7B%5Cbar%7B%5Calpha%7D_t%7D%7D)
 
-- **Uncertainty**:
-$$\boldsymbol{\Sigma} = \frac{1}{K}\sum_{k=1}^{K}\left(\boldsymbol{\epsilon}^{(k)} - \bar{\boldsymbol{\epsilon}}\right)\left(\boldsymbol{\epsilon}^{(k)} - \bar{\boldsymbol{\epsilon}}\right)^{\top}$$
+Drawing K samples (default 16), we compute the mean estimate and uncertainty covariance.
 
 ### 3.6 EKF Trajectory Fusion
 
-For sequence-level trajectory recovery, we employ a 15-dimensional error-state EKF that fuses diffusion-derived velocity observations with IMU mechanization:
+For sequence-level trajectory recovery, we employ a 15-dimensional error-state EKF that fuses diffusion-derived velocity observations with IMU mechanization.
 
-**State vector**: $\mathbf{x} = [\mathbf{p}, \mathbf{v}, \mathbf{q}, \mathbf{b}_a, \mathbf{b}_g]^{\top} \in \mathbb{R}^{15}$
-
-- Position $\mathbf{p} \in \mathbb{R}^3$, velocity $\mathbf{v} \in \mathbb{R}^3$
-- Orientation quaternion $\mathbf{q} \in \mathbb{S}^3$
-- Accelerometer bias $\mathbf{b}_a \in \mathbb{R}^3$, gyroscope bias $\mathbf{b}_g \in \mathbb{R}^3$
+**State vector**: Contains position, velocity, orientation quaternion, accelerometer bias, and gyroscope bias — 15 dimensions in total.
 
 **Prediction**: Standard strapdown inertial mechanization with midpoint integration, propagating uncertainty through the linearized state transition matrix.
 
 **Update**: At each diffusion prediction window, the velocity observation (with covariance from diffusion samples) is fused via the Kalman gain:
 
-$$\mathbf{K} = \mathbf{P} \mathbf{H}^{\top} \left(\mathbf{H} \mathbf{P} \mathbf{H}^{\top} + \mathbf{R}\right)^{-1}$$
+![kalman_gain](https://render.githubusercontent.com/render?math=%5Cmathbf%7BK%7D%20%3D%20%5Cmathbf%7BP%7D%20%5Cmathbf%7BH%7D%5E%7B%5Ctop%7D%20%5Cleft(%5Cmathbf%7BH%7D%20%5Cmathbf%7BP%7D%20%5Cmathbf%7BH%7D%5E%7B%5Ctop%7D%20%2B%20%5Cmathbf%7BR%7D%5Cright)%5E%7B-1%7D)
 
-where $\mathbf{H}$ selects the velocity block from the state and $\mathbf{R}$ is the diffusion-derived observation covariance. The Joseph form is used for numerically stable covariance updates.
+where H selects the velocity block from the state and R is the diffusion-derived observation covariance. The Joseph form is used for numerically stable covariance updates.
 
 ---
 
@@ -170,11 +162,13 @@ where $\mathbf{H}$ selects the velocity block from the state and $\mathbf{R}$ is
 ### 4.1 Setup
 
 **Datasets**: We evaluate on the following benchmark datasets:
+
 - **OxIOD**: 14 sequences with ground-truth from Vicon motion capture
 - **IDOL**: Large-scale inertial dataset with diverse activities
 - **RoNIN-Synthetic**: Generated trajectories with configurable noise levels
 
 **Metrics**:
+
 - **Velocity RMSE** (m/s): Root mean square error of velocity estimates
 - **ATE** (m): Absolute trajectory error for position
 - **NLL**: Negative log-likelihood under the predicted uncertainty
@@ -195,6 +189,7 @@ where $\mathbf{H}$ selects the velocity block from the state and $\mathbf{R}$ is
 ### 4.3 Uncertainty Quantification
 
 We evaluate uncertainty quality through:
+
 - **Sparsification plots**: Error vs. removed fraction (higher AUC is better)
 - **Calibration analysis**: Reliability diagrams comparing predicted vs. empirical variance
 - **Selective prediction**: Accuracy when uncertain predictions are rejected
@@ -202,6 +197,7 @@ We evaluate uncertainty quality through:
 ### 4.4 Ablation Study
 
 Key ablations include:
+
 - Effect of diffusion steps (50, 100, 200) on accuracy and speed
 - Number of DDIM samples (4, 8, 16, 32) on uncertainty quality
 - Impact of condition dimension (64, 128, 256) on model capacity
@@ -213,7 +209,7 @@ Key ablations include:
 
 We presented PostDiffIO, a conditional diffusion framework for uncertainty-aware inertial odometry. By decomposing velocity estimation into a deterministic backbone prediction and a diffusion-refined residual posterior, our approach achieves both fast inference and principled uncertainty quantification. The integration with an error-state EKF further enables robust trajectory recovery with full covariance tracking.
 
-Preliminary results indicate that diffusion-based residual refinement improves both point-estimate accuracy and uncertainty calibration over the backbone alone. We believe this two-stage paradigm—deterministic prediction plus diffusion refinement—is broadly applicable beyond inertial odometry, potentially benefiting any regression task where uncertainty awareness is critical.
+Preliminary results indicate that diffusion-based residual refinement improves both point-estimate accuracy and uncertainty calibration over the backbone alone. We believe this two-stage paradigm — deterministic prediction plus diffusion refinement — is broadly applicable beyond inertial odometry, potentially benefiting any regression task where uncertainty awareness is critical.
 
 Future work includes extending the framework to multi-modal sensor fusion, exploring adaptive diffusion schedules conditioned on motion dynamics, and conducting comprehensive real-world deployment evaluations.
 
